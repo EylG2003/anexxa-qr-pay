@@ -15,14 +15,14 @@ module.exports = async (req, res) => {
     }
     const stripe = new Stripe(process.env.STRIPE_SECRET, { apiVersion: '2024-06-20' });
 
-    // --- Robust JSON body parse (Vercel Node functions don't auto-parse) ---
+    // Robust JSON parse (Vercel Node function)
     let body = {};
     if (req.body && typeof req.body === 'object') {
       body = req.body;
     } else {
       const chunks = [];
       await new Promise((resolve, reject) => {
-        req.on('data', (c) => chunks.push(c));
+        req.on('data', c => chunks.push(c));
         req.on('end', resolve);
         req.on('error', reject);
       });
@@ -39,7 +39,6 @@ module.exports = async (req, res) => {
     }
 
     const origin = `https://${req.headers.host}`;
-
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       payment_method_types: ['card'],
