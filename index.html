@@ -18,8 +18,24 @@
   <div id="qr"></div>
   <p id="link"></p>
 
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script src="https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script>
+  function renderQR(targetEl, url) {
+    targetEl.innerHTML = '';
+    if (window.QRCode) {
+      QRCode.toCanvas(document.createElement('canvas'), url, { width: 260 }, (err, canvas) => {
+        if (err) { alert('QR error: ' + err.message); return; }
+        targetEl.appendChild(canvas);
+      });
+    } else {
+      const img = new Image();
+      img.width = 260; img.height = 260;
+      img.alt = 'QR';
+      img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=' + encodeURIComponent(url);
+      targetEl.appendChild(img);
+    }
+  }
+
   async function create() {
     try {
       const amount = document.getElementById('amount').value.replace(',', '.');
@@ -33,11 +49,7 @@
       let data = {}; try { data = JSON.parse(text); } catch {}
       if (!res.ok) { alert(data.error || text || 'Server error'); return; }
       if (!data.url) { alert('No URL returned:\n' + text); return; }
-      document.getElementById('qr').innerHTML = '';
-      QRCode.toCanvas(document.createElement('canvas'), data.url, { width: 260 }, (err, canvas) => {
-        if (err) return alert('QR error: ' + err.message);
-        document.getElementById('qr').appendChild(canvas);
-      });
+      renderQR(document.getElementById('qr'), data.url);
       const a = document.createElement('a');
       a.href = data.url; a.textContent = 'Open payment page';
       document.getElementById('link').innerHTML = '';
@@ -48,4 +60,5 @@
 </script>
 </body>
 </html>
+
 
