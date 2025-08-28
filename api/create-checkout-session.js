@@ -2,21 +2,42 @@
 const Stripe = require('stripe');
 
 module.exports = async (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Cache-Control', 'no-store');
+
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return res.status(405).json({ error: 'Method not allowed', method: req.method });
   }
 
   try {
+    if (!process.env.STRIPE_SECRET) {
+      return res.status(500).json({ error: 'STRIPE_SECRET not set' });
+    }
     const stripe = new Stripe(process.env.STRIPE_SECRET, { apiVersion: '2024-06-20' });
 
-    // Read JSON body (Vercel Node functions parse it automatically if proper headers are sent)
-    const { amountCents, currency = 'eur', description = 'In-store purchase' } = req.body || {};
+    // --- Robust JSON body parse (Vercel Node functions don't auto-parse) ---
+    let body = {};
+    if (req.body && typeof req.body === 'object') {
+      body = req.body;
+    } else {
+      const chunks = [];
+      await new Promise((resolve, reject) => {
+        req.on('data', (c) => chunks.push(c));
+        req.on('end', resolve);
+        req.on('error', reject);
+      });
+      if (chunks.length) {
+        try { body = JSON.parse(Buffer.concat(chunks).toString()); }
+        catch { return res.status(400).json({ error: 'Invalid JSON body' }); }
+      }
+    }
 
+    let { amountCents, currency = 'eur', description = 'In-store purchase' } = body || {};
+    amountCents = Number(amountCents);
     if (!amountCents || amountCents < 50) {
       return res.status(400).json({ error: 'amountCents required (>=50)' });
     }
 
-    // Use your deployed domain dynamically (works on Vercel)
     const origin = `https://${req.headers.host}`;
 
     const session = await stripe.checkout.sessions.create({
